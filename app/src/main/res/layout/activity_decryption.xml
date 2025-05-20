@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg"
+    android:padding="20dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal">
+
+        <!-- Select encrypted file -->
+
+        <Button
+            android:id="@+id/btn_select_encrypted_file"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select Encrypted File (.cyps)" />
+
+        <TextView
+            android:id="@+id/txt_selected_encrypted"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="8dp"
+            android:text="No encrypted file selected" />
+
+        <!-- Select private key -->
+        <Button
+            android:id="@+id/btn_select_key_file"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Select Private Key File (.txt)" />
+
+        <TextView
+            android:id="@+id/txt_selected_key"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="8dp"
+            android:text="No key file selected" />
+
+        <!-- Decrypt Button -->
+        <Button
+            android:id="@+id/btn_decrypt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="🔓 Decrypt File"
+            android:textAllCaps="false" />
+
+        <!-- Status -->
+        <TextView
+            android:id="@+id/txt_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#00FF00"
+            android:layout_marginTop="20dp"
+            android:text=""
+            android:textSize="14sp" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@drawable/bg"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- Search -->
+    <SearchView
+        android:id="@+id/searchView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:queryHint="Search in manual"
+        android:iconifiedByDefault="false"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark" />
+
+    <!-- Manual text -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:id="@+id/manual_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:lineSpacingExtra="8dp"
+            android:fontFamily="sans-serif"
+            android:importantForAccessibility="yes"
+            android:labelFor="@+id/manual_text"
+            android:contentDescription="User manual text" />
+
+    </ScrollView>
+
+    <!-- FAQ container -->
+
+
+    <!-- TTS -->
+    <Button
+        android:id="@+id/btn_tts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/rounded_button"
+        android:text="🔊 Read Manual Aloud"
+        android:textAllCaps="false"
+        android:textColor="#000000" />
+
+</LinearLayout>
