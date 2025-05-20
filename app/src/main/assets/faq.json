@@ -1,0 +1,20 @@
+[
+  {
+    "question": "What is a .cyps file?",
+    "answer": "A .cyps file is an encrypted output file created by Cipher Shield. It contains the encrypted binary of any selected file."
+  },
+  {
+    "question": "How do I encrypt a file?",
+    "answer": "Use the Encrypt screen to select a file and generate an encrypted .cyps file.",
+    "action": "open_encrypt"
+  },
+  {
+    "question": "How do I decrypt a file?",
+    "answer": "Use the Decrypt screen to load a .cyps file and its key to restore the original file.",
+    "action": "open_decrypt"
+  },
+  {
+    "question": "What if I lose my private key?",
+    "answer": "Without your private key (.txt), you cannot decrypt the .cyps file. Keep it secure."
+  }
+]
