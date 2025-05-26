@@ -81,7 +81,7 @@ CipherShield/
 ## 🧠 Author
 
 **Mayank Bisht**  
-📧 mayankbisht.dev@gmail.com  
+📧 mayankbisht8532@gmail.com  
 📍 Dehradun, India  
 [LinkedIn](https://github.com/wolverine9039/Cipher-Shield.git)
 
