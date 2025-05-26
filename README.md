@@ -36,7 +36,7 @@
 
 1. Clone this repo:
    ```bash
-   git clone https://github.com/your-username/cipher-shield.git
+   https://github.com/wolverine9039/Cipher-Shield.git
    ```
 2. Open in **Android Studio**
 3. Build the project and run it on an emulator or real device
@@ -83,7 +83,7 @@ CipherShield/
 **Mayank Bisht**  
 📧 mayankbisht.dev@gmail.com  
 📍 Dehradun, India  
-[LinkedIn](https://linkedin.com/in/mayankbisht)
+[LinkedIn](https://github.com/wolverine9039/Cipher-Shield.git)
 
 ---
 
