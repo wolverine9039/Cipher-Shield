@@ -1,0 +1,9 @@
+<resources>
+    <color name="primary">#6750A4</color>
+    <color name="primaryDark">#463770</color>
+    <color name="surfaceVariant">#E7E0EC</color>
+    <color name="textPrimary">#1C1B1F</color>
+    <color name="textSecondary">#49454F</color>
+    <color name="statusReady">#4CAF50</color>
+    <color name="white">#FFFFFF</color>
+</resources>

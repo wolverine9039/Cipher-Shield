@@ -1,228 +1,187 @@
 package com.example.ciphershield;
 
 import android.app.Activity;
-import android.content.Intent;
+import android.content.*;
+import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-
+import androidx.core.content.FileProvider;
 import java.io.*;
-import java.math.BigInteger;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.spec.RSAPrivateKeySpec;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 public class Decryption extends AppCompatActivity {
 
-    private static final int PICK_ENCRYPTED_FILE = 1;
-    private static final int PICK_KEY_FILE = 2;
+    private TextView txtSelectedEncrypted, txtSelectedKey, txtStatus;
+    private Button btnSelectEncrypted, btnSelectKey, btnDecrypt, btnSaveDecrypted, btnPreview;
+    private byte[] encryptedData, keyBytes, decryptedData;
+    private String originalExtension = "";
 
-    private Uri encryptedFileUri;
-    private Uri keyFileUri;
-    private Uri savedDecryptedUri;
+    private final ActivityResultLauncher<Intent> encryptedFileLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    handleFileSelection(result.getData().getData(), true);
+                }
+            });
 
-    private TextView txtEncryptedName, txtKeyName, txtStatus;
-    private Button btnPickEncrypted, btnPickKey, btnDecrypt, btnHome, btnExit, btnPreview;
-
-    private byte[] decryptedBytes;
-    private String originalExt = "bin";
-
-    private ActivityResultLauncher<Intent> saveDecryptedLauncher;
+    private final ActivityResultLauncher<Intent> keyFileLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    handleFileSelection(result.getData().getData(), false);
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_decryption);
 
-        // UI elements
-        txtEncryptedName = findViewById(R.id.txt_selected_encrypted);
-        txtKeyName = findViewById(R.id.txt_selected_key);
-        txtStatus = findViewById(R.id.txt_status);
-        btnPickEncrypted = findViewById(R.id.btn_select_encrypted_file);
-        btnPickKey = findViewById(R.id.btn_select_key_file);
-        btnDecrypt = findViewById(R.id.btn_decrypt);
-        btnHome = findViewById(R.id.btn_home);
-        btnExit = findViewById(R.id.btn_exit);
-        btnPreview = findViewById(R.id.btn_preview_decrypted);
+        txtSelectedEncrypted = findViewById(R.id.txt_selected_encrypted);
+        txtSelectedKey = findViewById(R.id.txt_selected_key);
+        txtStatus = findViewById(R.id.txtStatus);
+        btnSelectEncrypted = findViewById(R.id.btnSelectEncryptedFile);
+        btnSelectKey = findViewById(R.id.btnSelectKeyFile);
+        btnDecrypt = findViewById(R.id.btnDecrypt);
+        btnSaveDecrypted = findViewById(R.id.btnSaveDecrypted);
+        btnPreview = findViewById(R.id.btnPreview);
 
-        btnPreview.setEnabled(false);
-
-        saveDecryptedLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == RESULT_OK && result.getData() != null && decryptedBytes != null) {
-                        savedDecryptedUri = result.getData().getData();
-                        try (OutputStream out = getContentResolver().openOutputStream(savedDecryptedUri)) {
-                            out.write(decryptedBytes);
-                            txtStatus.setText("Decrypted and saved to:\n" + savedDecryptedUri.getPath());
-                            Toast.makeText(this, "Decryption successful.", Toast.LENGTH_LONG).show();
-                            btnPreview.setEnabled(true);
-                        } catch (IOException e) {
-                            txtStatus.setText("Failed to save file.");
-                        }
-                    }
-                }
-        );
-
-        btnPickEncrypted.setOnClickListener(v -> pickFile(PICK_ENCRYPTED_FILE));
-        btnPickKey.setOnClickListener(v -> pickFile(PICK_KEY_FILE));
-
-        btnDecrypt.setOnClickListener(v -> {
-            if (encryptedFileUri == null || keyFileUri == null) {
-                Toast.makeText(this, "Please select both files.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            decryptFile();
-        });
-
-        btnHome.setOnClickListener(v -> {
-            Intent intent = new Intent(Decryption.this, front.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-            finish();
-        });
-
-        btnExit.setOnClickListener(v -> {
-            finishAffinity();
-            System.exit(0);
-        });
-
-        btnPreview.setOnClickListener(v -> {
-            if (savedDecryptedUri != null) {
-                Intent openIntent = new Intent(Intent.ACTION_VIEW);
-                openIntent.setDataAndType(savedDecryptedUri, "*/*");
-                openIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                startActivity(Intent.createChooser(openIntent, "Open Decrypted File"));
-            }
-        });
+        btnSelectEncrypted.setOnClickListener(v -> openFilePicker(true));
+        btnSelectKey.setOnClickListener(v -> openFilePicker(false));
+        btnDecrypt.setOnClickListener(v -> decryptFile());
+        btnSaveDecrypted.setOnClickListener(v -> saveDecryptedFile());
+        btnPreview.setOnClickListener(v -> previewFile());
     }
 
-    private void pickFile(int requestCode) {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+    private void openFilePicker(boolean isEncryptedFile) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.setType("*/*");
-        startActivityForResult(Intent.createChooser(intent, "Select File"), requestCode);
+        if (isEncryptedFile) {
+            encryptedFileLauncher.launch(intent);
+        } else {
+            keyFileLauncher.launch(intent);
+        }
+    }
+
+    private void handleFileSelection(Uri uri, boolean isEncryptedFile) {
+        try {
+            byte[] data = readBytesFromUri(uri);
+            if (isEncryptedFile) {
+                encryptedData = data;
+                txtSelectedEncrypted.setText("Encrypted: " + getFileName(uri));
+            } else {
+                keyBytes = data;
+                txtSelectedKey.setText("Key: " + getFileName(uri));
+            }
+        } catch (IOException e) {
+            Toast.makeText(this, "Error reading file", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void decryptFile() {
+        if (encryptedData == null || keyBytes == null) {
+            Toast.makeText(this, "Please select both files first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                DecryptionUtil.Result result = DecryptionUtil.decrypt(encryptedData, keyBytes);
+                decryptedData = result.decryptedBytes;
+                originalExtension = result.originalExtension;
+
+                runOnUiThread(() -> {
+                    txtStatus.setText("Decrypted! Original extension: " + originalExtension);
+                    btnSaveDecrypted.setEnabled(true);
+                    btnPreview.setEnabled(true);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() ->
+                        txtStatus.setText("Decryption failed: " + e.getMessage()));
+            }
+        }).start();
+    }
+
+    private void saveDecryptedFile() {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_TITLE, "decrypted" + originalExtension);
+        startActivityForResult(intent, 1);
+    }
+
+    private void previewFile() {
+        try {
+            File tempFile = File.createTempFile("preview", originalExtension, getCacheDir());
+            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                fos.write(decryptedData);
+            }
+
+            Uri contentUri = FileProvider.getUriForFile(this,
+                    getPackageName() + ".provider", tempFile);
+
+            Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+            viewIntent.setDataAndType(contentUri, getMimeType(originalExtension));
+            viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(viewIntent);
+        } catch (IOException e) {
+            Toast.makeText(this, "Preview failed", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == Activity.RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            if (requestCode == PICK_ENCRYPTED_FILE) {
-                encryptedFileUri = uri;
-                txtEncryptedName.setText("Encrypted File: " + getFileName(uri));
-            } else if (requestCode == PICK_KEY_FILE) {
-                keyFileUri = uri;
-                txtKeyName.setText("Key File: " + getFileName(uri));
+        if (requestCode == 1 && resultCode == Activity.RESULT_OK && data != null) {
+            try (OutputStream out = getContentResolver().openOutputStream(data.getData())) {
+                out.write(decryptedData);
+                Toast.makeText(this, "File saved successfully", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                Toast.makeText(this, "Failed to save file", Toast.LENGTH_SHORT).show();
             }
         }
     }
 
-    private void decryptFile() {
-        try {
-            byte[] encryptedContent = readBytesFromUri(encryptedFileUri);
-            String keyText = readTextFromUri(keyFileUri);
-
-            BigInteger d = extractBigInteger(keyText, "d");
-            BigInteger n = extractBigInteger(keyText, "n");
-            originalExt = extractString(keyText, "ext");
-
-            if (d == null || n == null) {
-                txtStatus.setText("Invalid key file.");
-                return;
-            }
-
-            ByteArrayInputStream input = new ByteArrayInputStream(encryptedContent);
-            int aesKeyLength = readInt(input);
-            byte[] encryptedAESKey = null;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                encryptedAESKey = input.readNBytes(aesKeyLength);
-            }
-            byte[] encryptedFileData = null;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                encryptedFileData = input.readAllBytes();
-            }
-
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            PrivateKey privateKey = kf.generatePrivate(new RSAPrivateKeySpec(n, d));
-            Cipher rsaCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            rsaCipher.init(Cipher.DECRYPT_MODE, privateKey);
-            byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
-
-            SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
-            Cipher aesCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
-            decryptedBytes = aesCipher.doFinal(encryptedFileData);
-
-            // Let user choose where to save
-            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-            intent.setType("*/*");
-            intent.putExtra(Intent.EXTRA_TITLE, "decrypted_file." + originalExt);
-            saveDecryptedLauncher.launch(intent);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            txtStatus.setText("Decryption failed: " + e.getMessage());
+    private String getMimeType(String extension) {
+        switch (extension.toLowerCase()) {
+            case ".txt": return "text/plain";
+            case ".pdf": return "application/pdf";
+            case ".jpg": case ".jpeg": return "image/jpeg";
+            case ".png": return "image/png";
+            default: return "*/*";
         }
-    }
-
-    private int readInt(InputStream input) throws IOException {
-        byte[] intBytes = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intBytes = input.readNBytes(4);
-        }
-        return ((intBytes[0] & 0xFF) << 24) |
-                ((intBytes[1] & 0xFF) << 16) |
-                ((intBytes[2] & 0xFF) << 8) |
-                (intBytes[3] & 0xFF);
     }
 
     private byte[] readBytesFromUri(Uri uri) throws IOException {
-        try (InputStream input = getContentResolver().openInputStream(uri);
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[4096];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                output.write(buffer, 0, read);
+            int len;
+            while ((len = in.read(buffer)) > 0) {
+                out.write(buffer, 0, len);
             }
-            return output.toByteArray();
+            return out.toByteArray();
         }
-    }
-
-    private String readTextFromUri(Uri uri) throws IOException {
-        StringBuilder builder = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(getContentResolver().openInputStream(uri)))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                builder.append(line.trim());
-            }
-        }
-        return builder.toString();
-    }
-
-    private BigInteger extractBigInteger(String text, String key) {
-        Matcher matcher = Pattern.compile(key + ":\\s*(\\d+)").matcher(text);
-        return matcher.find() ? new BigInteger(matcher.group(1)) : null;
-    }
-
-    private String extractString(String text, String key) {
-        Matcher matcher = Pattern.compile(key + ":\\s*(\\w+)").matcher(text);
-        return matcher.find() ? matcher.group(1) : "bin";
     }
 
     private String getFileName(Uri uri) {
-        String path = uri.getLastPathSegment();
-        return (path != null && path.contains("/")) ? path.substring(path.lastIndexOf("/") + 1) : path;
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (idx >= 0) result = cursor.getString(idx);
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
     }
 }
