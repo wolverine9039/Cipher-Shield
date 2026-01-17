@@ -25,8 +25,8 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_lock"
-                android:visibility="gone"
-                app:tint="@color/primary" />
+                android:tint="@color/primary"
+                android:visibility="gone"/>
 
             <TextView
                 android:layout_width="0dp"
@@ -77,10 +77,10 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@drawable/ic_file"
+                        android:tint="@color/accent"
                         android:padding="8dp"
                         android:background="@drawable/circular_background"
-                        android:scaleType="centerInside"
-                        app:tint="@color/accent" />
+                        android:scaleType="centerInside"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -295,8 +295,63 @@
                     app:cornerRadius="12dp"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
 
+                <!-- Progress Text (for large files) -->
+                <TextView
+                    android:id="@+id/txtProgress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="12sp"
+                    android:textColor="@color/text_hint"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone"/>
+
+                <!-- Home and Exit Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="16dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHome"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:text="🏠 Home"
+                        android:textSize="16sp"
+                        android:textAllCaps="false"
+                        app:cornerRadius="12dp"
+                        android:layout_marginEnd="8dp"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnExit"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:text="🚪 Exit"
+                        android:textSize="16sp"
+                        android:textAllCaps="false"
+                        app:cornerRadius="12dp"
+                        android:backgroundTint="@color/error"
+                        android:layout_marginStart="8dp"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"/>
+                </LinearLayout>
+
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <!-- Large File Progress Indicator -->
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/linearProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            app:indicatorColor="@color/primary"
+            app:trackColor="@color/primary_light"
+            app:trackThickness="6dp"/>
 
         <!-- Security Notice -->
         <com.google.android.material.card.MaterialCardView

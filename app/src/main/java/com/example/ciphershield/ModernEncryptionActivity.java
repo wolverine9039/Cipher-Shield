@@ -6,7 +6,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
-import android.text.InputType;
 import android.view.View;
 import android.view.animation.*;
 import android.widget.*;
@@ -14,13 +13,14 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.cardview.widget.CardView;
-import androidx.core.content.FileProvider;
+
+import com.example.ciphershield.security.ChunkedEncryptionUtil;
 import com.example.ciphershield.security.SecureEncryptionUtil;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -29,15 +29,20 @@ import java.io.*;
 public class ModernEncryptionActivity extends AppCompatActivity {
 
     private MaterialCardView cardFileSelection, cardEncryptionMethod, cardActions;
-    private TextView txtSelectedFile, txtFileSize, txtStatus;
-    private MaterialButton btnSelectFile, btnEncrypt, btnSaveKey, btnSaveFile, btnUsePassword;
+    private TextView txtSelectedFile, txtFileSize, txtStatus, txtProgress;
+    private MaterialButton btnSelectFile, btnEncrypt, btnSaveKey, btnSaveFile, btnUsePassword, btnHome, btnExit;
     private Chip chipKeyMode, chipPasswordMode;
     private CircularProgressIndicator progressBar;
+    private LinearProgressIndicator linearProgress;
     private ImageView imgFileIcon, imgLockAnimation;
+    private boolean isLargeFile = false;
 
     private Uri selectedFileUri = null;
     private byte[] encryptedData = null;
+    private Uri encryptedFileUri = null;
+    private File tempEncryptedFile = null;
     private byte[] encryptionKey = null;
+    private String originalFileName = "";
     private String fileExtension = "";
     private boolean usePasswordMode = false;
     private String encryptionPassword = null;
@@ -52,14 +57,14 @@ public class ModernEncryptionActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> saveKeyLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    saveBytesToUri(result.getData().getData(), encryptionKey, "Key saved securely");
+                    saveKeyToUri(result.getData().getData());
                 }
             });
 
     private final ActivityResultLauncher<Intent> saveEncryptedLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    saveBytesToUri(result.getData().getData(), encryptedData, "Encrypted file saved");
+                    saveEncryptedToUri(result.getData().getData());
                 }
             });
 
@@ -81,23 +86,30 @@ public class ModernEncryptionActivity extends AppCompatActivity {
         txtSelectedFile = findViewById(R.id.txtSelectedFile);
         txtFileSize = findViewById(R.id.txtFileSize);
         txtStatus = findViewById(R.id.txtStatus);
+        txtProgress = findViewById(R.id.txtProgress);
 
         btnSelectFile = findViewById(R.id.btnSelectFile);
         btnEncrypt = findViewById(R.id.btnEncrypt);
         btnSaveKey = findViewById(R.id.btnSaveKey);
         btnSaveFile = findViewById(R.id.btnSaveFile);
         btnUsePassword = findViewById(R.id.btnUsePassword);
+        btnHome = findViewById(R.id.btnHome);
+        btnExit = findViewById(R.id.btnExit);
 
         chipKeyMode = findViewById(R.id.chipKeyMode);
         chipPasswordMode = findViewById(R.id.chipPasswordMode);
 
         progressBar = findViewById(R.id.progressBar);
+        linearProgress = findViewById(R.id.linearProgress);
         imgFileIcon = findViewById(R.id.imgFileIcon);
         imgLockAnimation = findViewById(R.id.imgLockAnimation);
 
-        // Initially hide action cards
         cardActions.setVisibility(View.GONE);
         cardActions.setAlpha(0f);
+
+        if (linearProgress != null) {
+            linearProgress.setVisibility(View.GONE);
+        }
     }
 
     private void setupClickListeners() {
@@ -136,10 +148,19 @@ public class ModernEncryptionActivity extends AppCompatActivity {
             animateButtonClick(v);
             saveEncryptedFile();
         });
+
+        btnHome.setOnClickListener(v -> {
+            animateButtonClick(v);
+            finish();
+        });
+
+        btnExit.setOnClickListener(v -> {
+            animateButtonClick(v);
+            finishAffinity();
+        });
     }
 
     private void animateInitialEntry() {
-        // Stagger animation for cards
         animateCardEntry(cardFileSelection, 0);
         animateCardEntry(cardEncryptionMethod, 150);
     }
@@ -157,26 +178,17 @@ public class ModernEncryptionActivity extends AppCompatActivity {
     }
 
     private void animateButtonClick(View button) {
-        // Scale animation for button press
         button.animate()
                 .scaleX(0.95f)
                 .scaleY(0.95f)
                 .setDuration(100)
-                .withEndAction(() -> {
-                    button.animate()
-                            .scaleX(1f)
-                            .scaleY(1f)
-                            .setDuration(100)
-                            .start();
-                })
+                .withEndAction(() -> button.animate().scaleX(1f).scaleY(1f).setDuration(100).start())
                 .start();
     }
 
     private void animateChipSelection(Chip selected, Chip unselected) {
-        // Animate selection
         selected.setChecked(true);
         unselected.setChecked(false);
-
         ObjectAnimator scaleUp = ObjectAnimator.ofFloat(selected, "scaleX", 1f, 1.1f, 1f);
         scaleUp.setDuration(200);
         scaleUp.start();
@@ -184,21 +196,10 @@ public class ModernEncryptionActivity extends AppCompatActivity {
 
     private void updateEncryptionModeUI() {
         if (usePasswordMode) {
-            btnUsePassword.setVisibility(View.VISIBLE);
             btnSaveKey.setVisibility(View.GONE);
-            animateFadeIn(btnUsePassword);
         } else {
-            btnUsePassword.setVisibility(View.GONE);
             btnSaveKey.setVisibility(View.VISIBLE);
         }
-    }
-
-    private void animateFadeIn(View view) {
-        view.setAlpha(0f);
-        view.animate()
-                .alpha(1f)
-                .setDuration(300)
-                .start();
     }
 
     private void openFilePicker() {
@@ -210,23 +211,31 @@ public class ModernEncryptionActivity extends AppCompatActivity {
 
     private void handleFileSelected(Uri uri) {
         selectedFileUri = uri;
-        String fileName = getFileName(uri);
+        originalFileName = getFileName(uri);
         long fileSize = getFileSize(uri);
-        fileExtension = getFileExtension(uri);
 
-        // Update UI with animation
-        txtSelectedFile.setText(fileName != null ? fileName : "Unknown File");
+        // Extract extension properly
+        fileExtension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            fileExtension = originalFileName.substring(originalFileName.lastIndexOf('.'));
+        }
+
+        isLargeFile = fileSize > (10 * 1024 * 1024); // 10MB
+
+        txtSelectedFile.setText(originalFileName != null ? originalFileName : "Unknown File");
         txtFileSize.setText(formatFileSize(fileSize));
 
-        // Animate file icon
-        animateFileIcon();
+        if (isLargeFile) {
+            txtFileSize.append(" • Large file - chunked encryption");
+            txtStatus.setText("📊 Optimized encryption for large file");
+            txtStatus.setTextColor(getColor(android.R.color.holo_blue_dark));
+        }
 
-        // Enable encryption button
+        animateFileIcon();
         btnEncrypt.setEnabled(true);
         animateButtonAppearance(btnEncrypt);
 
-        // Show success message
-        showSnackbar("File selected: " + fileName, false);
+        showSnackbar("Selected: " + originalFileName + " (" + fileExtension + ")", false);
     }
 
     private void animateFileIcon() {
@@ -243,11 +252,7 @@ public class ModernEncryptionActivity extends AppCompatActivity {
     private void animateButtonAppearance(MaterialButton button) {
         button.setAlpha(0f);
         button.setTranslationY(20f);
-        button.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(300)
-                .start();
+        button.animate().alpha(1f).translationY(0f).setDuration(300).start();
     }
 
     private void showPasswordDialog() {
@@ -294,11 +299,7 @@ public class ModernEncryptionActivity extends AppCompatActivity {
     private void animateDialogEntry(View view) {
         view.setAlpha(0f);
         view.setTranslationY(50f);
-        view.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(300)
-                .start();
+        view.animate().alpha(1f).translationY(0f).setDuration(300).start();
     }
 
     private void shakeView(View view) {
@@ -314,32 +315,16 @@ public class ModernEncryptionActivity extends AppCompatActivity {
             return;
         }
 
-        // Show loading state
         showLoadingState(true);
         animateLockIcon();
 
         new Thread(() -> {
             try {
-                byte[] inputBytes = readBytesFromUri(selectedFileUri);
-
-                SecureEncryptionUtil.EncryptionResult result;
-                if (usePasswordMode && encryptionPassword != null) {
-                    result = SecureEncryptionUtil.encryptWithPassword(
-                            inputBytes, encryptionPassword, fileExtension
-                    );
+                if (isLargeFile) {
+                    encryptLargeFile();
                 } else {
-                    result = SecureEncryptionUtil.encrypt(inputBytes, fileExtension);
+                    encryptStandardFile();
                 }
-
-                encryptedData = result.encryptedData;
-                encryptionKey = result.privateKey;
-
-                runOnUiThread(() -> {
-                    showLoadingState(false);
-                    showEncryptionSuccess(result.checksum);
-                    animateActionsCard();
-                });
-
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     showLoadingState(false);
@@ -349,11 +334,100 @@ public class ModernEncryptionActivity extends AppCompatActivity {
         }).start();
     }
 
+    private void encryptStandardFile() throws Exception {
+        byte[] inputBytes = readBytesFromUri(selectedFileUri);
+
+        SecureEncryptionUtil.EncryptionResult result;
+
+        // Pass the extension (including the dot)
+        if (usePasswordMode && encryptionPassword != null) {
+            result = SecureEncryptionUtil.encryptWithPassword(
+                    inputBytes, encryptionPassword, fileExtension
+            );
+        } else {
+            result = SecureEncryptionUtil.encrypt(inputBytes, fileExtension);
+        }
+
+        encryptedData = result.encryptedData;
+        encryptionKey = result.privateKey;
+
+        runOnUiThread(() -> {
+            showLoadingState(false);
+            showEncryptionSuccess(result.checksum);
+            animateActionsCard();
+        });
+    }
+
+    private void encryptLargeFile() throws Exception {
+        runOnUiThread(() -> {
+            if (linearProgress != null) {
+                linearProgress.setVisibility(View.VISIBLE);
+                linearProgress.setProgress(0);
+            }
+            if (txtProgress != null) {
+                txtProgress.setVisibility(View.VISIBLE);
+            }
+        });
+
+        File outputFile = File.createTempFile("encrypted_", ".csk", getCacheDir());
+        Uri outputUri = Uri.fromFile(outputFile);
+
+        ChunkedEncryptionUtil.ProgressCallback callback = new ChunkedEncryptionUtil.ProgressCallback() {
+            @Override
+            public void onProgress(int percentage, long bytesProcessed, long totalBytes) {
+                runOnUiThread(() -> {
+                    if (linearProgress != null) {
+                        linearProgress.setProgress(percentage);
+                    }
+                    if (txtProgress != null) {
+                        txtProgress.setText("Progress: " + percentage + "%");
+                    }
+                    txtStatus.setText("Encrypting: " + formatFileSize(bytesProcessed) +
+                            " / " + formatFileSize(totalBytes));
+                });
+            }
+
+            @Override
+            public void onComplete() {
+                runOnUiThread(() -> {
+                    showLoadingState(false);
+                    showEncryptionSuccess("Large file");
+                    animateActionsCard();
+                    if (linearProgress != null) {
+                        linearProgress.setVisibility(View.GONE);
+                    }
+                    if (txtProgress != null) {
+                        txtProgress.setVisibility(View.GONE);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                runOnUiThread(() -> {
+                    showLoadingState(false);
+                    showSnackbar("Encryption failed: " + e.getMessage(), true);
+                    if (linearProgress != null) {
+                        linearProgress.setVisibility(View.GONE);
+                    }
+                });
+            }
+        };
+
+        // Pass the extension to chunked encryption
+        ChunkedEncryptionUtil.EncryptionResult result =
+                ChunkedEncryptionUtil.encryptLargeFile(
+                        this, selectedFileUri, outputUri, fileExtension, callback
+                );
+
+        encryptedFileUri = result.encryptedFileUri;
+        encryptionKey = result.privateKey;
+        tempEncryptedFile = outputFile;
+    }
+
     private void animateLockIcon() {
         runOnUiThread(() -> {
             imgLockAnimation.setVisibility(View.VISIBLE);
-
-            // Rotate and scale animation
             ObjectAnimator rotate = ObjectAnimator.ofFloat(imgLockAnimation, "rotation", 0f, 360f);
             ObjectAnimator scaleX = ObjectAnimator.ofFloat(imgLockAnimation, "scaleX", 1f, 1.2f, 1f);
             ObjectAnimator scaleY = ObjectAnimator.ofFloat(imgLockAnimation, "scaleY", 1f, 1.2f, 1f);
@@ -380,7 +454,6 @@ public class ModernEncryptionActivity extends AppCompatActivity {
         txtStatus.setText("✓ Encryption successful!");
         txtStatus.setTextColor(getColor(android.R.color.holo_green_dark));
 
-        // Animate status text
         txtStatus.setScaleX(0.5f);
         txtStatus.setScaleY(0.5f);
         txtStatus.animate()
@@ -390,14 +463,13 @@ public class ModernEncryptionActivity extends AppCompatActivity {
                 .setInterpolator(new OvershootInterpolator())
                 .start();
 
-        showSnackbar("File encrypted successfully! Checksum: " + checksum.substring(0, 8) + "...", false);
+        showSnackbar("Encrypted! Extension preserved: " + fileExtension, false);
     }
 
     private void animateActionsCard() {
         cardActions.setVisibility(View.VISIBLE);
         cardActions.setAlpha(0f);
         cardActions.setTranslationY(50f);
-
         cardActions.animate()
                 .alpha(1f)
                 .translationY(0f)
@@ -414,12 +486,21 @@ public class ModernEncryptionActivity extends AppCompatActivity {
 
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.setType("application/octet-stream");
-        intent.putExtra(Intent.EXTRA_TITLE, "encryption_key_" + System.currentTimeMillis() + ".key");
+        intent.putExtra(Intent.EXTRA_TITLE, "key_" + System.currentTimeMillis() + ".key");
         saveKeyLauncher.launch(intent);
     }
 
+    private void saveKeyToUri(Uri uri) {
+        try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+            out.write(encryptionKey);
+            showSnackbar("Key saved (" + formatFileSize(encryptionKey.length) + ")", false);
+        } catch (IOException e) {
+            showSnackbar("Failed to save key: " + e.getMessage(), true);
+        }
+    }
+
     private void saveEncryptedFile() {
-        if (encryptedData == null) {
+        if (encryptedData == null && encryptedFileUri == null) {
             showSnackbar("No encrypted data available", true);
             return;
         }
@@ -431,37 +512,39 @@ public class ModernEncryptionActivity extends AppCompatActivity {
         saveEncryptedLauncher.launch(intent);
     }
 
-    private void saveBytesToUri(Uri uri, byte[] data, String successMsg) {
-        try (OutputStream out = getContentResolver().openOutputStream(uri)) {
-            out.write(data);
-            showSnackbar(successMsg, false);
-            animateSuccessCheck();
+    private void saveEncryptedToUri(Uri uri) {
+        try {
+            if (isLargeFile && encryptedFileUri != null) {
+                try (InputStream in = new FileInputStream(new File(encryptedFileUri.getPath()));
+                     OutputStream out = getContentResolver().openOutputStream(uri)) {
+
+                    byte[] buffer = new byte[8192];
+                    int len;
+                    long totalWritten = 0;
+                    while ((len = in.read(buffer)) > 0) {
+                        out.write(buffer, 0, len);
+                        totalWritten += len;
+                    }
+                    showSnackbar("Encrypted file saved (" + formatFileSize(totalWritten) + ")", false);
+                }
+            } else {
+                try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                    out.write(encryptedData);
+                    showSnackbar("Encrypted file saved (" + formatFileSize(encryptedData.length) + ")", false);
+                }
+            }
         } catch (IOException e) {
             showSnackbar("Failed to save: " + e.getMessage(), true);
         }
     }
 
-    private void animateSuccessCheck() {
-        // Create a checkmark animation overlay
-        ImageView checkmark = new ImageView(this);
-        checkmark.setImageResource(android.R.drawable.ic_menu_save);
-        // Add to layout and animate
-    }
-
     private void showSnackbar(String message, boolean isError) {
         Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content), message,
                 isError ? Snackbar.LENGTH_LONG : Snackbar.LENGTH_SHORT);
-
-        if (isError) {
-            snackbar.setBackgroundTint(getColor(android.R.color.holo_red_light));
-        } else {
-            snackbar.setBackgroundTint(getColor(android.R.color.holo_green_dark));
-        }
-
+        snackbar.setBackgroundTint(getColor(isError ?
+                android.R.color.holo_red_light : android.R.color.holo_green_dark));
         snackbar.show();
     }
-
-    // Helper methods
 
     private byte[] readBytesFromUri(Uri uri) throws IOException {
         try (InputStream in = getContentResolver().openInputStream(uri);
@@ -503,12 +586,6 @@ public class ModernEncryptionActivity extends AppCompatActivity {
         return 0;
     }
 
-    private String getFileExtension(Uri uri) {
-        String name = getFileName(uri);
-        return (name != null && name.contains(".")) ?
-                name.substring(name.lastIndexOf('.')) : "";
-    }
-
     private String formatFileSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
@@ -519,7 +596,11 @@ public class ModernEncryptionActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Secure cleanup
+
+        if (tempEncryptedFile != null && tempEncryptedFile.exists()) {
+            tempEncryptedFile.delete();
+        }
+
         if (encryptionKey != null) {
             java.util.Arrays.fill(encryptionKey, (byte) 0);
         }

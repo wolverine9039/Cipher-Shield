@@ -14,28 +14,38 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import com.example.ciphershield.security.ChunkedEncryptionUtil;
 import com.example.ciphershield.security.SecureEncryptionUtil;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import java.io.*;
+import java.nio.ByteBuffer;
 
 public class ModernDecryptionActivity extends AppCompatActivity {
 
     private MaterialCardView cardEncryptedFile, cardKeyFile, cardActions;
-    private TextView txtSelectedEncrypted, txtSelectedKey, txtStatus, txtVerificationStatus;
+    private TextView txtSelectedEncrypted, txtSelectedKey, txtStatus, txtVerificationStatus, txtProgress;
     private MaterialButton btnSelectEncrypted, btnSelectKey, btnDecrypt, btnSaveDecrypted, btnPreview;
     private Chip chipVerified, chipWarning;
     private CircularProgressIndicator progressBar;
+    private LinearProgressIndicator linearProgress;
     private ImageView imgUnlockAnimation;
 
-    private byte[] encryptedData, keyBytes, decryptedData;
+    private Uri encryptedFileUri = null;
+    private byte[] encryptedData = null;
+    private byte[] keyBytes = null;
+    private byte[] decryptedData = null;
+    private Uri decryptedFileUri = null;
+    private File tempDecryptedFile = null;
     private String originalExtension = "";
     private boolean isPasswordProtected = false;
     private boolean isVerified = false;
+    private boolean isLargeFile = false;
 
     private final ActivityResultLauncher<Intent> encryptedFileLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -77,6 +87,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         txtSelectedKey = findViewById(R.id.txtSelectedKey);
         txtStatus = findViewById(R.id.txtStatus);
         txtVerificationStatus = findViewById(R.id.txtVerificationStatus);
+        txtProgress = findViewById(R.id.txtProgress);
 
         btnSelectEncrypted = findViewById(R.id.btnSelectEncrypted);
         btnSelectKey = findViewById(R.id.btnSelectKey);
@@ -88,10 +99,15 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         chipWarning = findViewById(R.id.chipWarning);
 
         progressBar = findViewById(R.id.progressBar);
+        linearProgress = findViewById(R.id.linearProgress);
         imgUnlockAnimation = findViewById(R.id.imgUnlockAnimation);
 
         cardActions.setVisibility(View.GONE);
         cardActions.setAlpha(0f);
+
+        if (linearProgress != null) {
+            linearProgress.setVisibility(View.GONE);
+        }
     }
 
     private void setupClickListeners() {
@@ -147,13 +163,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
                 .scaleX(0.95f)
                 .scaleY(0.95f)
                 .setDuration(100)
-                .withEndAction(() -> {
-                    button.animate()
-                            .scaleX(1f)
-                            .scaleY(1f)
-                            .setDuration(100)
-                            .start();
-                })
+                .withEndAction(() -> button.animate().scaleX(1f).scaleY(1f).setDuration(100).start())
                 .start();
     }
 
@@ -169,17 +179,21 @@ public class ModernDecryptionActivity extends AppCompatActivity {
 
     private void handleFileSelection(Uri uri, boolean isEncryptedFile) {
         try {
-            byte[] data = readBytesFromUri(uri);
             String fileName = getFileName(uri);
+            long fileSize = getFileSize(uri);
 
             if (isEncryptedFile) {
-                encryptedData = data;
-                txtSelectedEncrypted.setText(fileName);
+                encryptedFileUri = uri;
+                isLargeFile = fileSize > (10 * 1024 * 1024);
 
-                // Detect if password-protected
-                if (data.length >= 3) {
-                    String header = new String(data, 0, 3);
-                    isPasswordProtected = "CP2".equals(header);
+                txtSelectedEncrypted.setText(fileName + " (" + formatFileSize(fileSize) + ")");
+
+                // Read header to detect file type
+                byte[] header = readHeaderBytes(uri, 3);
+                if (header != null && header.length >= 3) {
+                    String headerStr = new String(header, 0, 3);
+                    isPasswordProtected = "CP2".equals(headerStr);
+                    boolean isChunkedFile = "CL2".equals(headerStr);
 
                     if (isPasswordProtected) {
                         cardKeyFile.setVisibility(View.GONE);
@@ -187,24 +201,51 @@ public class ModernDecryptionActivity extends AppCompatActivity {
                     } else {
                         cardKeyFile.setVisibility(View.VISIBLE);
                     }
+
+                    if (isChunkedFile || isLargeFile) {
+                        txtStatus.setText("📊 Large file - optimized decryption");
+                        txtStatus.setTextColor(getColor(android.R.color.holo_blue_dark));
+                    }
+                }
+
+                // Only load small non-password files
+                if (!isLargeFile && !isPasswordProtected) {
+                    encryptedData = readBytesFromUri(uri);
                 }
 
                 animateFileIcon(imgUnlockAnimation);
             } else {
-                keyBytes = data;
-                txtSelectedKey.setText(fileName);
+                // KEY FILE
+                if (fileSize > (1024 * 1024)) {
+                    showSnackbar("Key file too large (" + formatFileSize(fileSize) +
+                            "). Keys are typically < 10KB.", true);
+                    return;
+                }
+
+                keyBytes = readBytesFromUri(uri);
+                txtSelectedKey.setText(fileName + " (" + formatFileSize(fileSize) + ")");
             }
 
-            // Enable decrypt if ready
-            if (encryptedData != null && (isPasswordProtected || keyBytes != null)) {
+            if (encryptedFileUri != null && (isPasswordProtected || keyBytes != null)) {
                 btnDecrypt.setEnabled(true);
                 animateButtonAppearance(btnDecrypt);
             }
 
             showSnackbar("File selected: " + fileName, false);
 
+        } catch (OutOfMemoryError e) {
+            showSnackbar("File too large to load into memory!", true);
         } catch (IOException e) {
             showSnackbar("Error reading file: " + e.getMessage(), true);
+        }
+    }
+
+    private byte[] readHeaderBytes(Uri uri, int numBytes) throws IOException {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) return null;
+            byte[] header = new byte[numBytes];
+            int read = in.read(header);
+            return read == numBytes ? header : null;
         }
     }
 
@@ -222,11 +263,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     private void animateButtonAppearance(MaterialButton button) {
         button.setAlpha(0f);
         button.setTranslationY(20f);
-        button.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(300)
-                .start();
+        button.animate().alpha(1f).translationY(0f).setDuration(300).start();
     }
 
     private void showPasswordDialog() {
@@ -243,13 +280,11 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         dialog.setOnShowListener(d -> {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 String password = passwordInput.getText().toString();
-
                 if (password.isEmpty()) {
                     passwordInput.setError("Password required");
                     shakeView(passwordInput);
                     return;
                 }
-
                 dialog.dismiss();
                 startDecryption(password);
             });
@@ -262,11 +297,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     private void animateDialogEntry(View view) {
         view.setAlpha(0f);
         view.setTranslationY(50f);
-        view.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(300)
-                .start();
+        view.animate().alpha(1f).translationY(0f).setDuration(300).start();
     }
 
     private void shakeView(View view) {
@@ -277,7 +308,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     }
 
     private void startDecryption(String password) {
-        if (encryptedData == null) {
+        if (encryptedFileUri == null) {
             showSnackbar("Please select an encrypted file", true);
             return;
         }
@@ -292,25 +323,11 @@ public class ModernDecryptionActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                SecureEncryptionUtil.DecryptionResult result;
-
-                if (isPasswordProtected) {
-                    result = SecureEncryptionUtil.decryptWithPassword(encryptedData, password);
+                if (isLargeFile || needsChunkedDecryption(encryptedFileUri)) {
+                    decryptLargeFile(password);
                 } else {
-                    result = SecureEncryptionUtil.decrypt(encryptedData, keyBytes);
+                    decryptStandardFile(password);
                 }
-
-                decryptedData = result.decryptedData;
-                originalExtension = result.originalExtension;
-                isVerified = result.verified;
-
-                runOnUiThread(() -> {
-                    showLoadingState(false);
-                    showDecryptionSuccess();
-                    updateVerificationStatus();
-                    animateActionsCard();
-                });
-
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     showLoadingState(false);
@@ -321,11 +338,157 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         }).start();
     }
 
+    private boolean needsChunkedDecryption(Uri uri) {
+        try {
+            byte[] header = readHeaderBytes(uri, 3);
+            if (header != null && header.length >= 3) {
+                return "CL2".equals(new String(header, 0, 3));
+            }
+        } catch (IOException e) {
+            // Ignore
+        }
+        return false;
+    }
+
+    private void decryptStandardFile(String password) throws Exception {
+        if (encryptedData == null) {
+            long fileSize = getFileSize(encryptedFileUri);
+            if (fileSize > (10 * 1024 * 1024)) {
+                throw new Exception("File too large for standard decryption");
+            }
+            encryptedData = readBytesFromUri(encryptedFileUri);
+        }
+
+        SecureEncryptionUtil.DecryptionResult result;
+
+        if (isPasswordProtected) {
+            result = SecureEncryptionUtil.decryptWithPassword(encryptedData, password);
+        } else {
+            result = SecureEncryptionUtil.decrypt(encryptedData, keyBytes);
+        }
+
+        decryptedData = result.decryptedData;
+        originalExtension = result.originalExtension;
+        isVerified = result.verified;
+
+        runOnUiThread(() -> {
+            showLoadingState(false);
+            showDecryptionSuccess();
+            updateVerificationStatus();
+            animateActionsCard();
+        });
+    }
+
+    private void decryptLargeFile(String password) throws Exception {
+        runOnUiThread(() -> {
+            if (linearProgress != null) {
+                linearProgress.setVisibility(View.VISIBLE);
+                linearProgress.setProgress(0);
+            }
+            if (txtProgress != null) {
+                txtProgress.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // Extract extension from file header
+        String extractedExtension = extractExtensionFromHeader(encryptedFileUri);
+        final String fileExtension = extractedExtension.isEmpty() ? ".bin" : extractedExtension;
+
+        // Create temp output file with proper extension
+        File outputFile = File.createTempFile("decrypted_", fileExtension, getCacheDir());
+        Uri outputUri = Uri.fromFile(outputFile);
+
+        ChunkedEncryptionUtil.ProgressCallback callback = new ChunkedEncryptionUtil.ProgressCallback() {
+            @Override
+            public void onProgress(int percentage, long bytesProcessed, long totalBytes) {
+                runOnUiThread(() -> {
+                    if (linearProgress != null) {
+                        linearProgress.setProgress(percentage);
+                    }
+                    if (txtProgress != null) {
+                        txtProgress.setText("Progress: " + percentage + "%");
+                    }
+                    txtStatus.setText("Decrypting: " + formatFileSize(bytesProcessed) +
+                            " / " + formatFileSize(totalBytes));
+                });
+            }
+
+            @Override
+            public void onComplete() {
+                runOnUiThread(() -> {
+                    showLoadingState(false);
+                    showDecryptionSuccess();
+                    updateVerificationStatus();
+                    animateActionsCard();
+                    if (linearProgress != null) {
+                        linearProgress.setVisibility(View.GONE);
+                    }
+                    if (txtProgress != null) {
+                        txtProgress.setVisibility(View.GONE);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                runOnUiThread(() -> {
+                    showLoadingState(false);
+                    showSnackbar("Decryption failed: " + e.getMessage(), true);
+                    if (linearProgress != null) {
+                        linearProgress.setVisibility(View.GONE);
+                    }
+                });
+            }
+        };
+
+        ChunkedEncryptionUtil.decryptLargeFile(
+                this, encryptedFileUri, outputUri, keyBytes, callback
+        );
+
+        decryptedFileUri = outputUri;
+        tempDecryptedFile = outputFile;
+        originalExtension = fileExtension;
+        isVerified = true;
+    }
+
+    private String extractExtensionFromHeader(Uri uri) {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) return "";
+
+            // Read version (3 bytes)
+            in.skip(3);
+
+            // Read and skip salt
+            byte[] saltLenBytes = new byte[4];
+            in.read(saltLenBytes);
+            int saltLen = ByteBuffer.wrap(saltLenBytes).getInt();
+            in.skip(saltLen);
+
+            // Read and skip IV
+            byte[] ivLenBytes = new byte[4];
+            in.read(ivLenBytes);
+            int ivLen = ByteBuffer.wrap(ivLenBytes).getInt();
+            in.skip(ivLen);
+
+            // Read extension
+            byte[] extLenBytes = new byte[4];
+            in.read(extLenBytes);
+            int extLen = ByteBuffer.wrap(extLenBytes).getInt();
+
+            if (extLen > 0 && extLen < 20) {
+                byte[] extBytes = new byte[extLen];
+                in.read(extBytes);
+                return new String(extBytes, java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
+            android.util.Log.w("Decryption", "Could not extract extension: " + e.getMessage());
+        }
+        return "";
+    }
+
     private void animateUnlockIcon() {
         runOnUiThread(() -> {
             imgUnlockAnimation.setVisibility(View.VISIBLE);
-
-            // Unlock animation
             ObjectAnimator rotate = ObjectAnimator.ofFloat(imgUnlockAnimation, "rotation", 0f, -15f, 15f, 0f);
             ObjectAnimator scaleX = ObjectAnimator.ofFloat(imgUnlockAnimation, "scaleX", 1f, 1.2f, 1f);
             ObjectAnimator scaleY = ObjectAnimator.ofFloat(imgUnlockAnimation, "scaleY", 1f, 1.2f, 1f);
@@ -361,7 +524,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
                 .setInterpolator(new OvershootInterpolator())
                 .start();
 
-        showSnackbar("File decrypted successfully! Extension: " + originalExtension, false);
+        showSnackbar("Decrypted! Original extension: " + originalExtension, false);
     }
 
     private void updateVerificationStatus() {
@@ -373,7 +536,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         } else {
             chipVerified.setVisibility(View.GONE);
             chipWarning.setVisibility(View.VISIBLE);
-            txtVerificationStatus.setText("⚠ Warning: File may be corrupted or tampered");
+            txtVerificationStatus.setText("⚠ Warning: File may be corrupted");
             txtVerificationStatus.setTextColor(getColor(android.R.color.holo_orange_dark));
         }
 
@@ -395,7 +558,6 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         cardActions.setVisibility(View.VISIBLE);
         cardActions.setAlpha(0f);
         cardActions.setTranslationY(50f);
-
         cardActions.animate()
                 .alpha(1f)
                 .translationY(0f)
@@ -407,14 +569,35 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     private void saveDecryptedFileDialog() {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.setType("*/*");
-        intent.putExtra(Intent.EXTRA_TITLE, "decrypted_" + System.currentTimeMillis() + originalExtension);
+
+        // Suggest filename with original extension
+        String suggestedName = "decrypted_" + System.currentTimeMillis() + originalExtension;
+        intent.putExtra(Intent.EXTRA_TITLE, suggestedName);
+
         saveDecryptedLauncher.launch(intent);
     }
 
     private void saveDecryptedFile(Uri uri) {
-        try (OutputStream out = getContentResolver().openOutputStream(uri)) {
-            out.write(decryptedData);
-            showSnackbar("Decrypted file saved successfully", false);
+        try {
+            if (isLargeFile && decryptedFileUri != null) {
+                try (InputStream in = new FileInputStream(new File(decryptedFileUri.getPath()));
+                     OutputStream out = getContentResolver().openOutputStream(uri)) {
+
+                    byte[] buffer = new byte[8192];
+                    int len;
+                    long totalWritten = 0;
+                    while ((len = in.read(buffer)) > 0) {
+                        out.write(buffer, 0, len);
+                        totalWritten += len;
+                    }
+                    showSnackbar("Saved (" + formatFileSize(totalWritten) + ") " + originalExtension, false);
+                }
+            } else {
+                try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                    out.write(decryptedData);
+                    showSnackbar("Saved (" + formatFileSize(decryptedData.length) + ") " + originalExtension, false);
+                }
+            }
             animateSuccessPulse(btnSaveDecrypted);
         } catch (IOException e) {
             showSnackbar("Failed to save: " + e.getMessage(), true);
@@ -423,24 +606,33 @@ public class ModernDecryptionActivity extends AppCompatActivity {
 
     private void previewFile() {
         try {
-            File tempFile = new File(getCacheDir(), "preview" + originalExtension);
+            File previewFile = new File(getCacheDir(), "preview" + originalExtension);
 
-            // Securely write to temp file
-            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                fos.write(decryptedData);
+            if (isLargeFile && decryptedFileUri != null) {
+                try (InputStream in = new FileInputStream(new File(decryptedFileUri.getPath()));
+                     FileOutputStream fos = new FileOutputStream(previewFile)) {
+
+                    byte[] buffer = new byte[8192];
+                    int len;
+                    while ((len = in.read(buffer)) > 0) {
+                        fos.write(buffer, 0, len);
+                    }
+                }
+            } else {
+                try (FileOutputStream fos = new FileOutputStream(previewFile)) {
+                    fos.write(decryptedData);
+                }
             }
 
             Uri contentUri = FileProvider.getUriForFile(this,
-                    getPackageName() + ".provider", tempFile);
+                    getPackageName() + ".provider", previewFile);
 
             Intent viewIntent = new Intent(Intent.ACTION_VIEW);
             viewIntent.setDataAndType(contentUri, getMimeType(originalExtension));
             viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
             startActivity(Intent.createChooser(viewIntent, "Preview with"));
-
-            // Schedule secure deletion
-            scheduleSecureDeletion(tempFile);
+            scheduleSecureDeletion(previewFile);
 
         } catch (Exception e) {
             showSnackbar("Preview failed: " + e.getMessage(), true);
@@ -448,12 +640,10 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     }
 
     private void scheduleSecureDeletion(File file) {
-        // Delete temp file after 5 minutes
         new Thread(() -> {
             try {
                 Thread.sleep(300000); // 5 minutes
                 if (file.exists()) {
-                    // Overwrite with random data before deletion
                     try (FileOutputStream fos = new FileOutputStream(file)) {
                         byte[] random = new byte[(int) file.length()];
                         new java.security.SecureRandom().nextBytes(random);
@@ -462,7 +652,7 @@ public class ModernDecryptionActivity extends AppCompatActivity {
                     file.delete();
                 }
             } catch (Exception e) {
-                // Silent cleanup failure
+                // Silent cleanup
             }
         }).start();
     }
@@ -470,7 +660,6 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     private void animateSuccessPulse(View view) {
         ObjectAnimator scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.1f, 1f);
         ObjectAnimator scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.1f, 1f);
-
         AnimatorSet set = new AnimatorSet();
         set.playTogether(scaleX, scaleY);
         set.setDuration(300);
@@ -480,13 +669,8 @@ public class ModernDecryptionActivity extends AppCompatActivity {
     private void showSnackbar(String message, boolean isError) {
         Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content), message,
                 isError ? Snackbar.LENGTH_LONG : Snackbar.LENGTH_SHORT);
-
-        if (isError) {
-            snackbar.setBackgroundTint(getColor(android.R.color.holo_red_light));
-        } else {
-            snackbar.setBackgroundTint(getColor(android.R.color.holo_green_dark));
-        }
-
+        snackbar.setBackgroundTint(getColor(isError ?
+                android.R.color.holo_red_light : android.R.color.holo_green_dark));
         snackbar.show();
     }
 
@@ -534,15 +718,39 @@ public class ModernDecryptionActivity extends AppCompatActivity {
         return result;
     }
 
+    private long getFileSize(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int idx = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (idx >= 0) return cursor.getLong(idx);
+            }
+        }
+        return 0;
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        String pre = "KMGTPE".charAt(exp - 1) + "";
+        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Secure cleanup
+
+        if (tempDecryptedFile != null && tempDecryptedFile.exists()) {
+            tempDecryptedFile.delete();
+        }
+
         if (decryptedData != null) {
             java.util.Arrays.fill(decryptedData, (byte) 0);
         }
         if (keyBytes != null) {
             java.util.Arrays.fill(keyBytes, (byte) 0);
+        }
+        if (encryptedData != null) {
+            java.util.Arrays.fill(encryptedData, (byte) 0);
         }
     }
 }
