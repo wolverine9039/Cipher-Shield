@@ -19,20 +19,15 @@ public class front extends AppCompatActivity {
         Button btnusr=findViewById(R.id.btn_usr_manual);
 
         // Open Encryption flow
+        // NEW v2.0 code ✅
         btnEncrypt.setOnClickListener(v -> {
-            Intent intent = new Intent(front.this, Encryption.class);
+            Intent intent = new Intent(front.this, ModernEncryptionActivity.class);  // ✅ NEW
             startActivity(intent);
         });
 
-        // Placeholder for Decryption (you can link a decryption activity here)
         btnDecrypt.setOnClickListener(v -> {
-            try {
-                Intent i = new Intent(front.this, Decryption.class);
-                startActivity(i);
-            } catch (Exception e) {
-                Toast.makeText(this, "Decryption screen not available.", Toast.LENGTH_SHORT).show();
-            }
-
+            Intent intent = new Intent(front.this, ModernDecryptionActivity.class);  // ✅ NEW
+            startActivity(intent);
         });
 
         btnusr.setOnClickListener(v->{

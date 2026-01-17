@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_gradient"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="24dp">
+
+            <ImageView
+                android:id="@+id/imgLockAnimation"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_lock"
+                android:visibility="gone"
+                app:tint="@color/primary" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Encrypt File"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"/>
+
+        </LinearLayout>
+
+        <!-- File Selection Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardFileSelection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="16dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📄 Select File"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:paddingBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="8dp">
+
+                    <ImageView
+                        android:id="@+id/imgFileIcon"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_file"
+                        android:padding="8dp"
+                        android:background="@drawable/circular_background"
+                        android:scaleType="centerInside"
+                        app:tint="@color/accent" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:paddingStart="16dp">
+
+                        <TextView
+                            android:id="@+id/txtSelectedFile"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="No file selected"
+                            android:textSize="14sp"
+                            android:textColor="@color/text_secondary"
+                            android:maxLines="2"
+                            android:ellipsize="end"/>
+
+                        <TextView
+                            android:id="@+id/txtFileSize"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textSize="12sp"
+                            android:textColor="@color/text_hint"
+                            android:paddingTop="4dp"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSelectFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="Choose File"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_folder"
+                    app:iconGravity="textStart"
+                    app:cornerRadius="12dp"
+                    android:layout_marginTop="12dp"
+                    style="@style/Widget.MaterialComponents.Button"/>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Encryption Method Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardEncryptionMethod"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔐 Encryption Method"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:paddingBottom="12dp"/>
+
+                <com.google.android.material.chip.ChipGroup
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="true"
+                    app:checkedChip="@id/chipKeyMode">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipKeyMode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Key-Based (Recommended)"
+                        android:checked="true"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        app:chipBackgroundColor="@color/chip_background"
+                        app:chipStrokeWidth="2dp"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipPasswordMode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Password-Based"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        app:chipBackgroundColor="@color/chip_background"
+                        app:chipStrokeWidth="2dp"/>
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Uses AES-256-GCM encryption with RSA-2048 key wrapping for maximum security"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_hint"
+                    android:paddingTop="8dp"
+                    android:lineSpacingExtra="2dp"/>
+
+                <!-- Status Text -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:paddingTop="16dp">
+
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
+                        android:id="@+id/progressBar"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:visibility="gone"
+                        app:indicatorSize="24dp"
+                        app:trackThickness="3dp"/>
+
+                    <TextView
+                        android:id="@+id/txtStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:paddingStart="8dp"
+                        android:textStyle="italic"/>
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnEncrypt"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="🔒 Encrypt File"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    android:enabled="false"
+                    app:cornerRadius="12dp"
+                    android:layout_marginTop="16dp"
+                    style="@style/Widget.MaterialComponents.Button"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnUsePassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Set Password"
+                    android:visibility="gone"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Actions Card (appears after encryption) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardActions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="@color/success"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✓ Encryption Complete"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/success"
+                    android:paddingBottom="12dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Your file has been encrypted securely. Save both the encrypted file and the key."
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:paddingBottom="16dp"
+                    android:lineSpacingExtra="2dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="💾 Save Encrypted File"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_save"
+                    app:iconGravity="textStart"
+                    app:cornerRadius="12dp"
+                    android:layout_marginBottom="8dp"
+                    style="@style/Widget.MaterialComponents.Button"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="🔑 Save Encryption Key"
+                    android:textSize="16sp"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_key"
+                    app:iconGravity="textStart"
+                    app:cornerRadius="12dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Security Notice -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/warning_background"
+            app:cardElevation="0dp"
+            app:cardCornerRadius="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️"
+                    android:textSize="24sp"
+                    android:paddingEnd="12dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Keep your encryption key safe! Without it, your files cannot be decrypted."
+                    android:textSize="12sp"
+                    android:textColor="@color/warning_text"
+                    android:lineSpacingExtra="2dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+</ScrollView>

@@ -123,9 +123,9 @@ public class UserManual extends AppCompatActivity {
 
         btn.setOnClickListener(v -> {
             if ("open_encrypt".equals(action)) {
-                startActivity(new Intent(this, Encryption.class));
+                startActivity(new Intent(this, ModernDecryptionActivity.class));
             } else if ("open_decrypt".equals(action)) {
-                startActivity(new Intent(this, Decryption.class));
+                startActivity(new Intent(this, ModernDecryptionActivity.class));
             }
         });
 

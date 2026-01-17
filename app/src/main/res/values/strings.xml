@@ -1,3 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cipher Shield</string>
+
+    <!-- Encryption -->
+    <string name="encrypt_title">Encrypt File</string>
+    <string name="select_file">Select File</string>
+    <string name="encryption_method">Encryption Method</string>
+    <string name="key_based">Key-Based (Recommended)</string>
+    <string name="password_based">Password-Based</string>
+    <string name="encrypt_button">🔒 Encrypt File</string>
+    <string name="encryption_complete">✓ Encryption Complete</string>
+    <string name="save_encrypted">💾 Save Encrypted File</string>
+    <string name="save_key">🔑 Save Encryption Key</string>
+
+    <!-- Decryption -->
+    <string name="decrypt_title">Decrypt File</string>
+    <string name="encrypted_file">🔒 Encrypted File</string>
+    <string name="decryption_key">🔑 Decryption Key</string>
+    <string name="decrypt_button">🔓 Decrypt File</string>
+    <string name="decryption_complete">✓ Decryption Complete</string>
+    <string name="save_decrypted">💾 Save Decrypted File</string>
+    <string name="preview_file">👁 Preview File</string>
+
+    <!-- Security -->
+    <string name="verified">Verified</string>
+    <string name="unverified">Unverified</string>
+    <string name="integrity_verified">File integrity verified ✓</string>
+    <string name="integrity_warning">⚠ Warning: File may be corrupted or tampered</string>
+    <string name="security_notice">Keep your encryption key safe! Without it, your files cannot be decrypted.</string>
+    <string name="preview_notice">Preview files are temporarily stored in cache and automatically deleted for security.</string>
+
+    <!-- Passwords -->
+    <string name="password_title">Set Encryption Password</string>
+    <string name="password_hint">Password</string>
+    <string name="confirm_password_hint">Confirm Password</string>
+    <string name="password_requirement">Password must be at least 8 characters</string>
+    <string name="password_decrypt_title">Enter Decryption Password</string>
+    <string name="wrong_password_warning">Wrong password will result in decryption failure</string>
+
+    <!-- Errors -->
+    <string name="error_file_selection">Please select a file first</string>
+    <string name="error_encryption_failed">Encryption failed: %s</string>
+    <string name="error_decryption_failed">Decryption failed: %s</string>
+    <string name="error_password_too_short">Password must be at least 8 characters</string>
+    <string name="error_passwords_mismatch">Passwords do not match</string>
+    <string name="error_save_failed">Failed to save: %s</string>
+
+    <!-- Success -->
+    <string name="success_file_selected">File selected: %s</string>
+    <string name="success_encryption">File encrypted successfully!</string>
+    <string name="success_decryption">File decrypted successfully!</string>
+    <string name="success_save">File saved successfully</string>
+    <string name="success_key_saved">Key saved securely</string>
+
+    <!-- About -->
+    <string name="about_title">About Cipher Shield</string>
+    <string name="about_description">Cipher Shield v2.0\nSecure File Encryption App\n\nFeatures:\n• AES-256-GCM Encryption\n• RSA-2048 Key Exchange\n• HMAC Authentication\n• Password Protection\n• Modern Material Design</string>
 </resources>

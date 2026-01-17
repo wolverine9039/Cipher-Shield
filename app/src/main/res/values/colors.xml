@@ -1,9 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#3F51B5</color>
-    <color name="primaryDark">#303F9F</color>
-    <color name="accent">#FF4081</color>
-    <color name="white">#FFFFFF</color>
-    <color name="textSecondary">#757575</color>
-    <color name="statusReady">#4CAF50</color>
-    <color name="error">#F44336</color>
+    <!-- Primary Colors -->
+    <color name="primary">#6C63FF</color>
+    <color name="primary_dark">#5548D9</color>
+    <color name="primary_light">#8B84FF</color>
+
+    <!-- Accent Colors -->
+    <color name="accent">#FF6584</color>
+    <color name="accent_dark">#E64A6C</color>
+    <color name="accent_light">#FF8CA3</color>
+
+    <!-- Background Colors -->
+    <color name="background_gradient">#F7F8FC</color>
+    <color name="background_white">#FFFFFF</color>
+    <color name="background_light">#FAFBFF</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#2D3748</color>
+    <color name="text_secondary">#718096</color>
+    <color name="text_hint">#A0AEC0</color>
+
+    <!-- Status Colors -->
+    <color name="success">#48BB78</color>
+    <color name="success_light">#68D391</color>
+    <color name="error">#F56565</color>
+    <color name="error_light">#FC8181</color>
+    <color name="warning">#ED8936</color>
+    <color name="warning_background">#FFFAF0</color>
+    <color name="warning_text">#C05621</color>
+
+    <!-- Chip Colors -->
+    <color name="chip_background">#EDF2F7</color>
+    <color name="chip_selected">#6C63FF</color>
+
+    <!-- Card Colors -->
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_stroke">#E2E8F0</color>
+
+    <!-- Shadow Colors -->
+    <color name="shadow_light">#1A000000</color>
+    <color name="shadow_medium">#33000000</color>
+
+    <!-- Material Design Colors -->
+    <color name="colorPrimary">@color/primary</color>
+    <color name="colorPrimaryDark">@color/primary_dark</color>
+    <color name="colorAccent">@color/accent</color>
 </resources>
